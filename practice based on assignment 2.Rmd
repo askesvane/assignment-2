@@ -1,0 +1,141 @@
+---
+title: "Practice based on portfolio 2"
+author: "Aske Qvist"
+date: "5 March 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Install packages 
+library(pacman)
+p_load("brms",
+       "tidyverse",
+       "rethinking"
+       )
+
+```
+
+# The Code with just one teacher
+```{r}
+# Defining grid number 'n' and a probability grid
+n <- 1000
+p_grid <- seq(from = 0, to = 1, length.out = n)
+
+# Define a flat prior
+prior <- rep(1, n)
+
+# Define a bin size to be able to standardize the y axis (as such the integral will sum to 1)
+bin_size <- abs(p_grid[1] - p_grid[2])
+
+# Compute likelihood for Josh (based on the grid I've made)
+likelihood <- dbinom( 160, size = 192 , prob = p_grid )
+
+# Compute unstandardized posterior from likelihood and the prior
+uns_posterior <- likelihood * prior
+
+# Compute standardized posterior. Now, it takes the bin size into account.
+posterior <- uns_posterior / sum(uns_posterior * bin_size)
+
+
+# Compute MAP (maximum a posterior probability) - create function
+match(max(posterior),posterior) / length(posterior)
+# Output is an estimate of Riccardos knowledge of CogSci from 0 to 1 ( -> 50 %)
+
+# add up posterior probability where p > 0.5 - the chance he knows more than chance. Multiply with bin_size to standardize results
+sum(posterior[ p_grid > 0.5 ] * bin_size)
+# There is a 50% chance he knows more than by chance.
+
+
+
+```
+
+# Wrap up code in function to estimate all teachers
+```{r}
+# Making a function that can do it with a flat prior
+ calc_teacher <- function(teacher, correct, questions, length.out = 10000){
+   
+   # Defining probability grid
+   p_grid <- seq(from = 0, to = 1, length.out = length.out)
+   
+   # Define a flat prior
+   prior <- rep(1, length.out)
+   
+   # Bin size
+   bin_size <- abs(p_grid[1] - p_grid[2])
+   
+   # Compute likelihood for Josh (based on the grid I've made)
+   likelihood <- dbinom( correct, size = questions, prob = p_grid )
+   
+   # Compute unstandardized posterior from likelihood and the prior
+   uns_posterior <- likelihood * prior
+   
+   # Compute standardized posterior. Now, it takes the bin size into account.
+   posterior <- uns_posterior / sum(uns_posterior * bin_size)
+   
+   # Compute MAP
+   map <- match(max(posterior),posterior) / length(posterior)
+   # Output is an estimate of Riccardos knowledge of CogSci from 0 to 1
+   
+   # posterior probability where p > 0.5
+   chance <- sum(posterior[ p_grid > 0.5 ] * bin_size)
+   
+   # Teacher as factor
+   teacher <- as.factor(teacher)
+  
+   # specify output
+   return(list(teacher, map, chance))
+   
+ }
+
+
+```
+
+# Loop through all teachers
+```{r}
+
+# Save all teacher info as a tibble
+d <- data.frame(
+  correct=c(3,2,160,66),
+  questions=c(6,2,198,132),
+  teacher=c("RF","KT","JS","MW"))
+
+# Making empty dataframe
+teacher_info <- data.frame(teacher = factor(), MAP = numeric(), chance = numeric())
+
+# Run loop to extract MAP and 'chance above chance' for each teacher
+for(i in 1:nrow(d)) {
+    
+    correct <- d[i,1]
+    questions <- d[i,2]
+    teacher <- d[i,3]
+    
+    # Use my sexy little function
+    info <- calc_teacher(teacher, correct, questions) %>% as.data.frame()
+    
+    names(info)[1] <- "teacher" 
+    names(info)[2] <- "MAP"
+    names(info)[3] <- "chance"
+    
+    # Combine with premade empty dataframe
+    if (nrow(teacher_info) == 0) {
+      teacher_info <- info}
+      else {
+        teacher_info <- rbind(teacher_info, info)}
+    
+    }
+    
+
+
+
+```
+
+
+
+
+
+
+
+
+
